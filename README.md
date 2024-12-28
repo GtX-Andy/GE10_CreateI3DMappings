@@ -6,7 +6,7 @@
 A Giants Editor 10 script to assist with the creation of XML I3D mappings for placeable and vehicle mods.
 
 ## Installation
-Download and place the `createI3DMappings.lua` in your Giants Editor 10 scripts folder.\
+Download and place the `CreateI3DMappings.lua` in your Giants Editor 10 scripts folder.\
 Example:  C:/Users/%USERNAME%/AppData/Local/GIANTS Editor 64bit 10.0.3/scripts/
 
 *An icon image is included for users that wish to add the script as part of the GE toolbar.*
