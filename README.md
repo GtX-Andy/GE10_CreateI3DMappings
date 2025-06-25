@@ -1,13 +1,13 @@
 # Create I3D Mappings
 
-`Giants Editor 10`   `Version:  1.0.0.0`   `Build Date: November 21 2024`
+`Giants Editor 10`   `Version:  1.1.0.0`   `Build Date: June 25 2025`
 
 ## About
 A Giants Editor 10 script to assist with the creation of XML I3D mappings for placeable and vehicle mods.
 
 ## Installation
 Download and place the `CreateI3DMappings.lua` in your Giants Editor 10 scripts folder.\
-Example:  C:/Users/%USERNAME%/AppData/Local/GIANTS Editor 64bit 10.0.3/scripts/
+Example:  C:/Users/%USERNAME%/AppData/Local/GIANTS Editor 64bit 10.0.5/scripts/
 
 *An icon image is included for users that wish to add the script as part of the GE toolbar.*
 

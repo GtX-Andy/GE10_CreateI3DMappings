@@ -16,6 +16,7 @@ CreateI3DMappings.WINDOW_HEIGHT = 600
 
 CreateI3DMappings.NUMBER_DUPLICATE_NAMES = 0
 CreateI3DMappings.NUMBER_WHITESPACE_NAMES = 0
+CreateI3DMappings.NODE_TO_NAME = {}
 
 function CreateI3DMappings.new()
     local self = setmetatable({}, {__index = CreateI3DMappings})
@@ -24,6 +25,7 @@ function CreateI3DMappings.new()
 
     self.defaultMappingsText = "<i3dMappings>\n</i3dMappings>"
     self.mappingsTextAreaText = self.defaultMappingsText
+    self.mappingsText = ""
 
     if g_createI3DMappings ~= nil then
         g_createI3DMappings:close()
@@ -55,7 +57,7 @@ function CreateI3DMappings:generateUI()
     UIButton.new(colSizer, "Copy All", self.copyAll, self, -1, -1, -1, 35, BorderDirection.RIGHT, 25, 1)
 
     local function showMessageBox()
-        local aboutText = "Create I3D Mappings - v1.0.0.0\n\nBuild Date: November 21 2024\nSupport: https://github.com/GtX-Andy/GE10_CreateI3DMappings\n\nCopyright © 2018 - 2024 GtX (Andy)"
+        local aboutText = "Create I3D Mappings - v1.1.0.0\n\nBuild Date: June 25 2025\nSupport: https://github.com/GtX-Andy/GE10_CreateI3DMappings\n\nCopyright © 2018 - 2024 GtX (Andy)"
         self:showMessageBox(aboutText, "About")
     end
 
@@ -65,42 +67,45 @@ function CreateI3DMappings:generateUI()
     self.window:showWindow()
 end
 
+function CreateI3DMappings:createMappingsText(id, sceneId, numMappingsByName, perspCamera, selectedNodes)
+    for i = 0, getNumOfChildren(id) - 1 do
+        local childId = getChildAt(id, i)
+        local validNodeId = childId ~= perspCamera
+
+        if validNodeId and (selectedNodes == nil or selectedNodes[childId]) then
+            self.mappingsText = (self.mappingsText or '') .. '    <i3dMapping id="' .. CreateI3DMappings.getValidNodeName(childId, numMappingsByName) .. '" node="' .. CreateI3DMappings.getNodePathIndices(childId, sceneId) .. '"/>\n'
+        end
+
+        if validNodeId then
+            self:createMappingsText(childId, sceneId, numMappingsByName, perspCamera, selectedNodes)
+        end
+    end
+end
+
 function CreateI3DMappings:createMappings(selectedOnly)
     local sceneId = getRootNode()
     local numMappingsByName = {}
 
+    self.mappingsText = ''
+
     if selectedOnly then
-        -- local mappingsText = self.defaultMappingsText
         local numSelected = getNumSelected()
 
         if numSelected > 0 then
-            mappingsText = '<i3dMappings>\n'
-
             if numSelected > 1 then
                 local selectedNodes = {}
 
-                for i = 1, numSelected do
-                    local childId = getSelection(i - 1)
-
-                    selectedNodes[i] = {
-                        name = CreateI3DMappings.getValidNodeName(childId, numMappingsByName),
-                        pathIndices = CreateI3DMappings.getNodePathIndices(childId, sceneId)
-                    }
+                for i = 0, numSelected - 1 do
+                    selectedNodes[getSelection(i)] = true
                 end
 
-                table.sort(selectedNodes, function(a, b)
-                    return a.pathIndices < b.pathIndices
-                end)
-
-                for _, selectedNode in ipairs (selectedNodes) do
-                    mappingsText = mappingsText .. '    <i3dMapping id="' .. selectedNode.name .. '" node="' .. selectedNode.pathIndices .. '"/>\n'
-                end
+                self:createMappingsText(sceneId, sceneId, numMappingsByName, 0, selectedNodes)
             else
                 local childId = getSelection(0)
-                mappingsText = mappingsText .. '    <i3dMapping id="' .. CreateI3DMappings.getValidNodeName(childId, numMappingsByName) .. '" node="' .. CreateI3DMappings.getNodePathIndices(childId, sceneId) .. '"/>\n'
+                self.mappingsText = '    <i3dMapping id="' .. CreateI3DMappings.getValidNodeName(childId, numMappingsByName) .. '" node="' .. CreateI3DMappings.getNodePathIndices(childId, sceneId) .. '"/>\n'
             end
 
-            self.mappingsTextArea:setValue(mappingsText .. '</i3dMappings>')
+            self.mappingsTextArea:setValue('<i3dMappings>\n' .. self.mappingsText .. '</i3dMappings>')
         else
             self.mappingsTextArea:setValue("Info:\n  - First select one or more nodes from the Scenegraph.")
         end
@@ -115,23 +120,9 @@ function CreateI3DMappings:createMappings(selectedOnly)
                     perspCamera = 0
                 end
 
-                local mappingsText = '<i3dMappings>\n'
-                local createMappingsTextRecursive
+                self:createMappingsText(sceneId, sceneId, numMappingsByName, perspCamera, nil)
 
-                createMappingsTextRecursive = function(id)
-                    for i = 0, getNumOfChildren(id) - 1 do
-                        local childId = getChildAt(id, i)
-
-                        if childId ~= perspCamera then
-                            mappingsText = mappingsText .. '    <i3dMapping id="' .. CreateI3DMappings.getValidNodeName(childId, numMappingsByName) .. '" node="' .. CreateI3DMappings.getNodePathIndices(childId, sceneId) .. '"/>\n'
-                            createMappingsTextRecursive(childId)
-                        end
-                    end
-                end
-
-                createMappingsTextRecursive(sceneId)
-
-                self.mappingsTextArea:setValue(mappingsText .. '</i3dMappings>')
+                self.mappingsTextArea:setValue('<i3dMappings>\n' .. self.mappingsText .. '</i3dMappings>')
             else
                 self.mappingsTextArea:setValue("Info:\n  - Scenegraph is empty.")
             end
@@ -140,21 +131,27 @@ function CreateI3DMappings:createMappings(selectedOnly)
         end
     end
 
+    self.mappingsText = ''
+
     -- Added for release version
     local message = ""
     local numDuplicates = CreateI3DMappings.NUMBER_DUPLICATE_NAMES
     local numWhitespace = CreateI3DMappings.NUMBER_WHITESPACE_NAMES
 
     if numDuplicates > 0 then
-        message = `Duplicate Names: {numDuplicates}\n`
+        message = `Duplicate Names: {numDuplicates}`
     end
 
     if numWhitespace > 0 then
+        if message ~= "" then
+            message = message .. "\n"
+        end
+
         message = `{message}Names Containing Whitespace: {numWhitespace}`
     end
 
     if message ~= "" then
-        self:showMessageBox(`Resolved XML naming violations:\n\n{message}`, "Info")
+        self:showMessageBox(`Resolved XML naming violations:\n\n{message}`, "Info", true)
     end
 
     CreateI3DMappings.NUMBER_DUPLICATE_NAMES = 0
@@ -165,17 +162,64 @@ function CreateI3DMappings:copyAll()
     setClipboard(self.mappingsTextArea:getValue():match("^(.*%S)%s*$"))
 end
 
-function CreateI3DMappings:showMessageBox(text, title)
+function CreateI3DMappings:showMessageBox(text, title, isRenameDialog)
     if text ~= nil then
-        if MessageBox == nil then
-            source("ui/MessageBox.lua")
-        end
-
         if self.messageBoxWindow ~= nil then
             self.messageBoxWindow:close()
         end
 
-        self.messageBoxWindow = MessageBox.show(title or "Message", text, function() self.messageBoxWindow = nil end)
+        -- Unfortunately the 'YesNoDialog' in GE does not resize the buttons correctly when passing new text so create a new Dialog
+        local windowRowSizer = UIRowLayoutSizer.new()
+        local window = UIWindow.new(windowRowSizer, title or "Message", false, true)
+
+        local bgSizer = UIRowLayoutSizer.new()
+        UIPanel.new(windowRowSizer, bgSizer, -1, -1, 600, -1, BorderDirection.NONE, 0, 1)
+
+        local uiBorderSizer = UIRowLayoutSizer.new()
+        local panel = UIPanel.new(bgSizer, uiBorderSizer, -1, -1, -1, -1, BorderDirection.NONE, 0, 1)
+        panel:setBackgroundColor(1, 1, 1, 1)
+
+        local rowSizerElements = UIRowLayoutSizer.new()
+        UIPanel.new(uiBorderSizer, rowSizerElements, -1, -1, -1, -1, BorderDirection.ALL, 15, 1)
+
+        UILabel.new(rowSizerElements, text, true, TextAlignment.LEFT, VerticalAlignment.TOP, -1, -1, 600, -1, BorderDirection.BOTTOM, 0, 1)
+
+        UIHorizontalLine.new(bgSizer, -1, -1, -1, -1, BorderDirection.BOTTOM, 0, 0)
+
+        local columnSizerButtons = UIColumnLayoutSizer.new()
+        UIPanel.new(bgSizer, columnSizerButtons, -1, -1, 150, -1, BorderDirection.ALL, 10)
+
+        UILabel.new(columnSizerButtons, "", false, TextAlignment.LEFT, VerticalAlignment.TOP, -1, -1, 370, -1, BorderDirection.NONE, 0, 1)
+
+        if isRenameDialog and CreateI3DMappings.NODE_TO_NAME ~= nil and next(CreateI3DMappings.NODE_TO_NAME) ~= nil then
+            local onClickRename = function()
+                window:close()
+
+                if CreateI3DMappings.NODE_TO_NAME ~= nil then
+                    for node, name in pairs (CreateI3DMappings.NODE_TO_NAME) do
+                        setName(node, name)
+                    end
+                end
+
+                CreateI3DMappings.NODE_TO_NAME = {}
+            end
+
+            UIButton.new(columnSizerButtons, "Correct I3D Names", onClickRename, nil, -1, -1, 180, 24, BorderDirection.RIGHT, 10, 0)
+        end
+
+        local onClickClose = function()
+            window:close()
+
+            CreateI3DMappings.NODE_TO_NAME = {}
+        end
+
+        UIButton.new(columnSizerButtons, "Close", onClickClose, nil, -1, -1, 80, 24, BorderDirection.RIGHT, 0, 0)
+
+        window:fit()
+        window:refresh()
+        window:showWindow()
+
+        self.messageBoxWindow = window
     end
 end
 
@@ -198,20 +242,24 @@ function CreateI3DMappings.getValidNodeName(node, list)
     if name:find(" ") then
         name = name:gsub("%W+(%w+)", function(str)
             return str:gsub("^%l", string.upper)
-        end)
+        end):gsub("^%u", string.lower)
+
         CreateI3DMappings.NUMBER_WHITESPACE_NAMES += 1
+        CreateI3DMappings.NODE_TO_NAME[node] = name
     end
 
     if list ~= nil then
-        -- If name is in use by another mapping then add 'duplicate_xx' suffix
+        -- If name is in use by another mapping then add 'duplicateName_xx' suffix
         local numMappings = list[name]
 
         if numMappings == nil then
             list[name] = 1
         else
             list[name] = numMappings + 1
-            name = string.format("%s_duplicate_%02.f", name, numMappings)
+            name = string.format("%s_duplicateName_%02.f", name, numMappings)
+
             CreateI3DMappings.NUMBER_DUPLICATE_NAMES += 1
+            CreateI3DMappings.NODE_TO_NAME[node] = name
         end
     end
 
